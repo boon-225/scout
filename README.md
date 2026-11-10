@@ -38,7 +38,7 @@ tools/dry_run.sh              apply + scan a client locally, without compiling
   bundle (`.aab`) is attached to the run.
 
 The first build compiles all dependencies (about 5 hours) and caches them for every client.
-If it stops at the time limit, use **Re-run all jobs**; it continues from the cache.
+If it stops at the time limit, start a **new** run (Run workflow); it continues from the cache.
 
 ### Signing secrets (per client)
 

@@ -17,7 +17,7 @@
 #
 # The first run builds all dependencies (Qt, QGIS, GDAL, ...) and can take about 5 hours.
 # They are cached and shared by every client. If the first run stops at the time limit,
-# use "Re-run all jobs": it continues from the cache.
+# start a NEW run (Run workflow): it continues from the cache.
 
 name: Build app
 on:
@@ -142,7 +142,7 @@ jobs:
         uses: actions/cache/restore@v6
         with:
           path: /home/runner/vcpkg-cache
-          key: vcpkg-arm64-${{ steps.vars.outputs.qfield_ref }}-${{ hashFiles('qfield/vcpkg.json') }}-${{ github.run_id }}
+          key: vcpkg-arm64-${{ steps.vars.outputs.qfield_ref }}-${{ hashFiles('qfield/vcpkg.json') }}-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
             vcpkg-arm64-${{ steps.vars.outputs.qfield_ref }}-${{ hashFiles('qfield/vcpkg.json') }}-
             vcpkg-arm64-
@@ -177,7 +177,7 @@ jobs:
         uses: actions/cache/save@v6
         with:
           path: /home/runner/vcpkg-cache
-          key: vcpkg-arm64-${{ steps.vars.outputs.qfield_ref }}-${{ hashFiles('qfield/vcpkg.json') }}-${{ github.run_id }}
+          key: vcpkg-arm64-${{ steps.vars.outputs.qfield_ref }}-${{ hashFiles('qfield/vcpkg.json') }}-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Upload dependency build logs
         uses: actions/upload-artifact@v7
