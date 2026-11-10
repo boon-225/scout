@@ -1,0 +1,43 @@
+# Scout: the standard Boon Agriculture field app.
+# Every value a build needs for this client. Edit this file, never QField's code.
+# Fields marked PERMANENT must never change after the first public release.
+
+client:
+  key: scout                         # folder name, secret prefix (SCOUT_*), file names
+
+app:
+  name: "Scout"                      # name under the icon (keep it short)
+  cloud_name: "Scout Cloud"          # replaces "QFieldCloud" on screen
+  id: com.boonagric.scout            # PERMANENT Android app ID
+  icon: scout                        # base name of the icon files in assets/android
+
+server:
+  url: https://cloud.boonagric.com   # default server; users open straight onto sign-in
+
+look:                                # placeholder palette (indigo, straw, terracotta)
+  primary: "#1E2742"                 # indigo: brand colour, icon background, light-theme accent
+  accent_dark_theme: "#E3C58B"       # straw: accent on dark backgrounds
+  highlight: "#C8553D"               # terracotta
+
+about:
+  organisation: "Boon Agriculture Pvt Ltd"
+  support_email: "boonagric@gmail.com"
+  website: "https://boonagric.com"
+  privacy_policy_url: "https://boonagric.com/privacy"   # must be live before the Play Store release
+  source_url: ""                     # TODO: public repository address, shown as "Source code" on the About page
+
+links:
+  help_url: "https://boonagric.com"  # every QField documentation link points here
+  plugin_catalog_url: ""             # empty: no online plugin catalogue
+
+upstream_name:
+  visible: false                     # no QField / QFieldCloud names or links anywhere a user can see
+  keep_phrases: []                   # phrases that must keep the QField name (none for Scout)
+
+build:
+  sample_projects: false             # no QField demo projects
+  all_files_access: false
+
+release:
+  channels: [direct, play]
+  tag_prefix: scout-v                # releases are tagged scout-v1.0.0, scout-v1.0.1, ...

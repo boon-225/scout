@@ -1,0 +1,235 @@
+---
+# White-label Android build: one client in, one signed app out.
+#
+#   Test build:  Actions -> "Build app" -> Run workflow -> choose the client (e.g. scout)
+#                (version "dev-<commit>", artefacts attached to the run)
+#   Release:     push a tag <client>-v<version>, e.g. scout-v1.0.0
+#                (signed APK + Play Store bundle attached to a GitHub Release)
+#
+# What it does: checks out UNMODIFIED QField at the version in upstream.lock, applies the
+# client's branding from customers/<client>/ (branding/apply.py), then compiles and signs.
+#
+# Secrets per client (Settings -> Secrets and variables -> Actions), CLIENT in capitals:
+#   <CLIENT>_KEYSTORE_B64   base64 of the client's release keystore (.p12)
+#   <CLIENT>_KEY_ALIAS      key alias inside the keystore
+#   <CLIENT>_KEYSTORE_PASS  keystore password (also used as key password)
+# Without them the build still runs and produces an unsigned debug APK (for testing only).
+#
+# The first run builds all dependencies (Qt, QGIS, GDAL, ...) and can take about 5 hours.
+# They are cached and shared by every client. If the first run stops at the time limit,
+# use "Re-run all jobs": it continues from the cache.
+
+name: Build app
+on:
+  workflow_dispatch:
+    inputs:
+      client:
+        description: "Client folder name in customers/ (e.g. scout)"
+        required: true
+        default: scout
+  push:
+    tags:
+      - '*-v*'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-${{ github.ref }}-${{ inputs.client }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    env:
+      TRIPLET: arm64-android
+      VCPKG_CACHE_DIR: /home/runner/vcpkg-cache
+      VCPKG_BINARY_SOURCES: clear;files,/home/runner/vcpkg-cache,readwrite
+      BUILD_TYPE: Release
+      CMAKE_BUILD_DIR: /home/runner/builddir
+      QF: ${{ github.workspace }}/qfield
+
+    steps:
+      - name: Checkout pipeline
+        uses: actions/checkout@v7.0.1
+        with:
+          path: pipeline
+
+      - name: Which client and which QField
+        id: vars
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            CLIENT="${GITHUB_REF_NAME%%-v*}"                    # scout-v1.0.0 -> scout
+          else
+            CLIENT="${{ inputs.client }}"
+          fi
+          [[ -f "pipeline/customers/${CLIENT}/customer.yml" ]] || { echo "::error::No customers/${CLIENT}/customer.yml"; exit 1; }
+          echo "client=${CLIENT}" >> $GITHUB_OUTPUT
+          echo "client_upper=${CLIENT^^}" >> $GITHUB_OUTPUT
+          echo "qfield_ref=$(tr -d '[:space:]' < pipeline/upstream.lock)" >> $GITHUB_OUTPUT
+          echo "Client ${CLIENT}, QField $(cat pipeline/upstream.lock)"
+
+      - name: Checkout QField (unmodified)
+        uses: actions/checkout@v7.0.1
+        with:
+          repository: opengisch/QField
+          ref: ${{ steps.vars.outputs.qfield_ref }}
+          path: qfield
+          submodules: recursive
+
+      - name: Reclaim disk space
+        run: |
+          df -h .
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost "$AGENT_TOOLSDIRECTORY"
+          df -h .
+
+      - name: Apply branding
+        shell: bash
+        run: |
+          python3 -c 'import yaml' 2>/dev/null || sudo apt-get install -y python3-yaml
+          python3 pipeline/branding/apply.py "pipeline/customers/${{ steps.vars.outputs.client }}/customer.yml" qfield --env-file branding.env
+          cat branding.env >> $GITHUB_ENV
+          cp qfield/NOTICE.md NOTICE-${{ steps.vars.outputs.client }}.md
+
+      - name: Prepare variables
+        shell: bash
+        run: |
+          NDK_VERSION=29.0.14206865
+          echo "JAVA_HOME=${JAVA_HOME_17_X64}" >> $GITHUB_ENV
+          echo "ANDROID_BUILD_TOOLS_VERSION=35.0.1" >> $GITHUB_ENV
+          echo "ANDROID_NDK_VERSION=${NDK_VERSION}" >> $GITHUB_ENV
+          echo "ANDROID_NDK=/usr/local/lib/android/sdk/ndk/${NDK_VERSION}" >> $GITHUB_ENV
+          echo "ANDROID_NDK_HOME=/usr/local/lib/android/sdk/ndk/${NDK_VERSION}" >> $GITHUB_ENV
+          echo "ANDROID_NDK_ROOT=/usr/local/lib/android/sdk/ndk/${NDK_VERSION}" >> $GITHUB_ENV
+          echo "ndk.dir=/usr/local/lib/android/sdk/ndk/${NDK_VERSION}" >> qfield/local.properties
+
+          source qfield/scripts/version_number.sh
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            APP_VERSION="v${GITHUB_REF_NAME#*-v}"                  # scout-v1.2.3 -> v1.2.3
+            APK_VERSION_CODE=$(apk_version_code "${APP_VERSION}" "${TRIPLET}")
+            APP_VERSION_STR=$(app_version_str "${APP_VERSION}")
+          else
+            APP_VERSION="v0.0.0"
+            APK_VERSION_CODE=${GITHUB_RUN_NUMBER}
+            APP_VERSION_STR="dev-${GITHUB_SHA::7}"
+          fi
+          echo "APP_VERSION=${APP_VERSION}" >> $GITHUB_ENV
+          echo "APK_VERSION_CODE=${APK_VERSION_CODE}" >> $GITHUB_ENV
+          echo "APP_VERSION_STR=${APP_VERSION_STR}" >> $GITHUB_ENV
+          echo "OUT_NAME=${CLIENT_KEY}-${APP_VERSION_STR// /-}-arm64" >> $GITHUB_ENV
+          echo "Version ${APP_VERSION_STR} (code ${APK_VERSION_CODE})"
+
+      - name: Install CMake and Ninja
+        uses: lukka/get-cmake@latest
+        with:
+          cmakeVersion: 3.29.0
+
+      - name: Prepare build environment
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gperf autopoint '^libxcb.*-dev' libxrandr-dev libx11-xcb-dev libsm-dev libegl1-mesa-dev libglu1-mesa-dev libxrender-dev libxi-dev libxkbcommon-dev libxkbcommon-x11-dev autoconf-archive libgstreamer-gl1.0-0 libgstreamer-plugins-base1.0-0 libfuse2 libcups2-dev nasm libltdl-dev
+          wget -q https://github.com/Kitware/CMake/releases/download/v3.31.6/cmake-3.31.6-linux-x86_64.sh -O /tmp/cmakeinstall.sh
+          chmod +x /tmp/cmakeinstall.sh
+          sudo /tmp/cmakeinstall.sh --prefix=/usr/local --exclude-subdir
+          rm /tmp/cmakeinstall.sh
+          mkdir -p "${VCPKG_CACHE_DIR}"
+
+      # The cache is shared by all clients: its key depends only on QField's dependency list.
+      - name: Restore dependency cache
+        id: cache
+        uses: actions/cache/restore@v6
+        with:
+          path: /home/runner/vcpkg-cache
+          key: vcpkg-arm64-${{ steps.vars.outputs.qfield_ref }}-${{ hashFiles('qfield/vcpkg.json') }}-${{ github.run_id }}
+          restore-keys: |
+            vcpkg-arm64-${{ steps.vars.outputs.qfield_ref }}-${{ hashFiles('qfield/vcpkg.json') }}-
+            vcpkg-arm64-
+
+      # Builds every dependency the first time. Stops after 5 h so the cache can still be saved.
+      - name: Install dependencies and configure
+        timeout-minutes: 300
+        run: |
+          cmake -S "${QF}" \
+                -B "${CMAKE_BUILD_DIR}" \
+                -G Ninja \
+                -D CMAKE_BUILD_TYPE=${BUILD_TYPE} \
+                -D ANDROID_SDK_ROOT=${ANDROID_SDK_ROOT} \
+                -D ANDROID_NDK_VERSION="${ANDROID_NDK_VERSION}" \
+                -D ANDROID_BUILD_TOOLS_VERSION="${ANDROID_BUILD_TOOLS_VERSION}" \
+                -D VCPKG_TARGET_TRIPLET="${TRIPLET}" \
+                -D VCPKG_INSTALL_OPTIONS="--allow-unsupported" \
+                -D WITH_ALL_FILES_ACCESS=${WITH_ALL_FILES_ACCESS} \
+                -D WITH_SAMPLE_PROJECTS=${WITH_SAMPLE_PROJECTS} \
+                -D WITH_SPIX=OFF \
+                -D APP_VERSION="${APP_VERSION}" \
+                -D APK_VERSION_CODE="${APK_VERSION_CODE}" \
+                -D APP_VERSION_STR="${APP_VERSION_STR}" \
+                -D APP_PACKAGE_NAME="${APP_PACKAGE_NAME}" \
+                -D APP_ICON="${APP_ICON}" \
+                -D APP_ICON_PATH="${APP_ICON_PATH}" \
+                -D APP_THEME_PATH="${APP_THEME_PATH}" \
+                -D APP_NAME="${APP_NAME}"
+
+      - name: Save dependency cache
+        if: always()
+        uses: actions/cache/save@v6
+        with:
+          path: /home/runner/vcpkg-cache
+          key: vcpkg-arm64-${{ steps.vars.outputs.qfield_ref }}-${{ hashFiles('qfield/vcpkg.json') }}-${{ github.run_id }}
+
+      - name: Upload dependency build logs
+        uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: build-logs-arm64
+          path: ${{ env.CMAKE_BUILD_DIR }}/**/*.log
+
+      - name: Build
+        run: cmake --build "${CMAKE_BUILD_DIR}" --config ${BUILD_TYPE}
+
+      - name: Set up signing key
+        env:
+          KEYSTORE_B64: ${{ secrets[format('{0}_KEYSTORE_B64', steps.vars.outputs.client_upper)] }}
+        run: |
+          if [ -n "${KEYSTORE_B64}" ]; then
+            echo "${KEYSTORE_B64}" | base64 --decode > "${QF}/keystore.p12"
+            echo "Release keystore installed for ${CLIENT_KEY}"
+          else
+            echo "::warning::No ${CLIENT_KEY^^}_KEYSTORE_B64 secret - the APK will not be release-signed"
+          fi
+
+      - name: Package APK and Play Store bundle
+        env:
+          KEYNAME: ${{ secrets[format('{0}_KEY_ALIAS', steps.vars.outputs.client_upper)] }}
+          KEYPASS: ${{ secrets[format('{0}_KEYSTORE_PASS', steps.vars.outputs.client_upper)] }}
+          STOREPASS: ${{ secrets[format('{0}_KEYSTORE_PASS', steps.vars.outputs.client_upper)] }}
+        run: |
+          cmake --build "${CMAKE_BUILD_DIR}" --target bundle --config Release
+          OUT="${CMAKE_BUILD_DIR}/src/app/android-build/build/outputs"
+          ls -R "${OUT}" || true
+          mkdir -p /tmp/out
+          if   [ -f "${OUT}/apk/release/android-build-release-signed.apk" ]; then cp "${OUT}/apk/release/android-build-release-signed.apk" "/tmp/out/${OUT_NAME}.apk"
+          elif [ -f "${OUT}/apk/debug/android-build-debug.apk" ];           then cp "${OUT}/apk/debug/android-build-debug.apk"            "/tmp/out/${OUT_NAME}-debug.apk"
+          else echo "::error::No APK produced"; exit 1; fi
+          AAB=$(find "${OUT}" -name "*.aab" | head -1)
+          if [ -n "${AAB}" ]; then cp "${AAB}" "/tmp/out/${OUT_NAME}.aab"; else echo "::notice::No Play Store bundle (.aab) produced (signing secrets missing?)"; fi
+          cp "NOTICE-${CLIENT_KEY}.md" /tmp/out/NOTICE.md
+          rm -f "${QF}/keystore.p12"
+
+      - name: Upload build
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ env.OUT_NAME }}
+          path: /tmp/out/*
+
+      - name: Publish GitHub Release (tags only)
+        if: ${{ github.ref_type == 'tag' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        working-directory: pipeline
+        run: |
+          gh release create "${GITHUB_REF_NAME}" /tmp/out/*.apk /tmp/out/NOTICE.md \
+            --title "${APP_NAME} ${APP_VERSION_STR}" \
+            --notes "${APP_NAME} ${APP_VERSION_STR} (Android arm64), built from QField $(cat upstream.lock) with the branding in customers/${CLIENT_KEY}/. Source code: this repository at tag ${GITHUB_REF_NAME}, plus QField $(cat upstream.lock) (GPL-2.0-or-later). Sync your data before installing an update. The Play Store bundle (.aab) is in the workflow run's artefacts."

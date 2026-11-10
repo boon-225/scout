@@ -1,0 +1,43 @@
+# TEMPLATE: copy this folder to customers/<key>/, fill in every value, then add the logo assets.
+# Every value a build needs for this client. Edit this file, never QField's code. Logo assets go in assets/ (see README).
+# Fields marked PERMANENT must never change after the first public release.
+
+client:
+  key: CHANGEME                        # folder name, secret prefix (KEY in capitals, e.g. ACME_*), file names
+
+app:
+  name: "CHANGEME"                      # name under the icon (keep it short)
+  cloud_name: "CHANGEME Cloud"          # replaces "QFieldCloud" on screen
+  id: com.example.app            # PERMANENT Android app ID
+  icon: CHANGEME                       # base name of the icon files in assets/android
+
+server:
+  url: https://cloud.example.com   # default server; users open straight onto sign-in
+
+look:                                # placeholder palette (indigo, straw, terracotta)
+  primary: "#1E2742"                 # indigo: brand colour, icon background, light-theme accent
+  accent_dark_theme: "#E3C58B"       # straw: accent on dark backgrounds
+  highlight: "#C8553D"               # terracotta
+
+about:
+  organisation: "CHANGEME"
+  support_email: "support@example.com"
+  website: "https://example.com"
+  privacy_policy_url: "https://example.com/privacy"   # must be live before the Play Store release
+  source_url: ""                     # TODO: public repository address, shown as "Source code" on the About page
+
+links:
+  help_url: "https://example.com"  # every QField documentation link points here
+  plugin_catalog_url: ""             # empty: no online plugin catalogue
+
+upstream_name:
+  visible: false                     # no QField / QFieldCloud names or links anywhere a user can see
+  keep_phrases: []                   # phrases that must keep the QField name (none = strict: no QField anywhere)
+
+build:
+  sample_projects: false             # no QField demo projects
+  all_files_access: false
+
+release:
+  channels: [direct, play]
+  tag_prefix: CHANGEME-v                # releases are tagged <key>-v1.0.0, <key>-v1.0.1, ...

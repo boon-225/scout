@@ -1,0 +1,12 @@
+# Never commit signing keys or secrets
+*.p12
+*.jks
+*.keystore
+*.pem
+*.key
+*.b64
+.env
+*.env
+# local dry runs
+_dryrun/
+__pycache__/

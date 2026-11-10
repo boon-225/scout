@@ -1,0 +1,46 @@
+---
+# Quick check (about 2 minutes, no compiling): applies every client's branding to a fresh
+# QField checkout and runs the "no visible QField" scan. Runs on every push and pull request,
+# so broken client files or QField changes are caught before a 1-5 hour build.
+name: Check branding
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          path: pipeline
+
+      - name: QField version
+        id: v
+        run: echo "ref=$(tr -d '[:space:]' < pipeline/upstream.lock)" >> $GITHUB_OUTPUT
+
+      - uses: actions/checkout@v7.0.1
+        with:
+          repository: opengisch/QField
+          ref: ${{ steps.v.outputs.ref }}
+          path: qfield-clean
+
+      - name: Apply and scan every client
+        shell: bash
+        run: |
+          python3 -c 'import yaml' 2>/dev/null || sudo apt-get install -y python3-yaml
+          status=0
+          for cfg in pipeline/customers/*/customer.yml; do
+            client=$(basename "$(dirname "$cfg")")
+            [[ "$client" == _* ]] && continue
+            echo "::group::${client}"
+            rm -rf work && cp -r qfield-clean work
+            python3 pipeline/branding/apply.py "$cfg" work --env-file "/tmp/${client}.env" --outdir /tmp/out-${client} || status=1
+            echo "::endgroup::"
+          done
+          exit $status
