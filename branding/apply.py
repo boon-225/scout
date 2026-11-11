@@ -241,6 +241,20 @@ def step_patches(cfg, qf):
     patch(qf, f"{java}/QFieldPositioningService.java", 'CHANNEL_ID, "QField", NotificationManager', f'CHANNEL_ID, "{app}", NotificationManager')
     patch(qf, f"{java}/QFieldPositioningService.java", 'setDescription("QField Positioning")', f'setDescription("{app} Positioning")')
 
+    # app data folder on the phone ("QField" -> app name): created by the Android code and passed to
+    # the rest of the app, so renaming it here is consistent everywhere
+    folder = get(cfg, "app.data_folder") or get(cfg, "app.name")
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9 _-]{0,30}", folder):
+        fail(f"app.data_folder '{folder}' must be letters, digits, space, - or _")
+    f = qml_str(folder)
+    patch(qf, f"{java}/QFieldActivity.java", 'dataDir = dataDir + "QField/";', f'dataDir = dataDir + "{f}/";')
+    patch(qf, f"{java}/QFieldActivity.java", 'String rootDataDir = storagePath + "/QField/";', f'String rootDataDir = storagePath + "/{f}/";')
+    patch(qf, f"{java}/QFieldActivity.java", 'String dataDir = file.getAbsolutePath() + "/QField/";', f'String dataDir = file.getAbsolutePath() + "/{f}/";')
+    patch(qf, "src/core/platforms/qfplatformutilities.cpp", 'QStringLiteral( "/QField Documents/QField/" )', f'QStringLiteral( "/{f} Documents/{f}/" )')
+    # camera maker written into photos' metadata (shown in gallery photo details)
+    patch(qf, "src/core/utils/qffileutils.cpp", 'metadata["Exif.Image.Make"] = QStringLiteral( "QField" );', f'metadata["Exif.Image.Make"] = QStringLiteral( "{app}" );')
+    patch(qf, "src/core/utils/qffileutils.cpp", 'metadata["Xmp.tiff.Make"] = QStringLiteral( "QField" );', f'metadata["Xmp.tiff.Make"] = QStringLiteral( "{app}" );')
+
     # online plugin catalogue (QField's) -> client catalogue or none
     catalog = get(cfg, "links.plugin_catalog_url") or ""
     patch(qf, "src/app/qfpluginmodel.cpp", '#define REMOTE_PLUGINS_URL "https://qfield.org/plugins.json"',
@@ -268,6 +282,15 @@ def step_logos(cfg, qf, outdir):
         if not os.path.exists(src):
             fail(f"missing Android icon file {src}")
         dst = os.path.join("platform/android/res/drawable", name)
+        shutil.copy(src, os.path.join(qf, dst))
+        CHANGED.add(dst)
+    # folder icons with the QField "Q" (app files directory) -> the plain folder icons
+    theme_icons = "images/themes/qfield/nodpi"
+    for variant in ("param", "gray"):
+        src = os.path.join(qf, theme_icons, f"ic_folder_{variant}_48dp.svg")
+        dst = os.path.join(theme_icons, f"ic_folder_qfield_{variant}_48dp.svg")
+        if not os.path.exists(src) or not os.path.exists(os.path.join(qf, dst)):
+            fail(f"QField folder icons changed ({dst}); review step_logos in branding/apply.py")
         shutil.copy(src, os.path.join(qf, dst))
         CHANGED.add(dst)
     # status-bar icon used by the sync and positioning notifications (QField's logo by default)
@@ -340,9 +363,13 @@ def step_scan(cfg, qf):
                 problems.append(f"{os.path.relpath(p, qf)}: text {m.group(1)[:90]}")
     # Android code: notification titles/channels and dialog texts
     vis = re.compile(r'(setContentTitle|setContentText|setDescription|setTitle|setMessage|makeText|NotificationChannel)\([^;]*"[^"]*\bQField(?:Cloud)?\b[^"]*"', re.S)
+    folder_name = re.compile(r'"/?QField/"')
     for p in glob.glob(os.path.join(qf, "platform/android/src/**/*.java"), recursive=True):
-        for m in vis.finditer(read(p)):
+        s = read(p)
+        for m in vis.finditer(s):
             problems.append(f"{os.path.relpath(p, qf)}: Android text {m.group(0)[:90]!r}")
+        for m in folder_name.finditer(s):
+            problems.append(f"{os.path.relpath(p, qf)}: phone folder named QField ({m.group(0)})")
     if problems:
         fail("QField names or links are still visible:\n  " + "\n  ".join(problems[:60]) +
              (f"\n  ... and {len(problems) - 60} more" if len(problems) > 60 else ""))

@@ -9,6 +9,7 @@ app:
   name: "CHANGEME"                      # name under the icon (keep it short)
   cloud_name: "CHANGEME Cloud"          # replaces "QFieldCloud" on screen
   id: com.example.app            # PERMANENT Android app ID
+  data_folder: "CHANGEME"            # app folder on the phone (basemaps, fonts, plugins, logs)
   icon: CHANGEME                       # base name of the icon files in assets/android
 
 server:

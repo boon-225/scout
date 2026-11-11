@@ -10,6 +10,7 @@ app:
   cloud_name: "Scout Cloud"          # replaces "QFieldCloud" on screen
   id: com.boonagric.scout            # PERMANENT Android app ID
   icon: scout                        # base name of the icon files in assets/android
+  data_folder: "Scout"               # app folder on the phone (basemaps, fonts, plugins, logs)
 
 server:
   url: https://cloud.boonagric.com   # default server; users open straight onto sign-in
