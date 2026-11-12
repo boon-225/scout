@@ -94,7 +94,7 @@ def validate(cfg):
         fail("server.url must be https://host (no path)")
     if len(get(cfg, "app.name")) > 16:
         print(f"[branding] WARNING: app name '{get(cfg, 'app.name')}' is long and may be cut off under the icon")
-    for k in ("look.primary", "look.accent_dark_theme", "look.highlight"):
+    for k in ("look.primary", "look.accent_dark_theme", "look.highlight", "look.cloud"):
         v = get(cfg, k)
         if v and not re.fullmatch(r"#[0-9A-Fa-f]{6}", v):
             fail(f"{k} must be a colour like #1E2742")
@@ -153,6 +153,42 @@ def step_texts(cfg, qf):
     out = subprocess.run(args, cwd=qf, check=True, capture_output=True, text=True).stdout
     print(out.splitlines()[0] if out else "")
     CHANGED.update(l.strip() for l in out.splitlines()[1:] if l.strip())
+
+
+REWRITES = [
+    # (file, old sentence, new sentence): user texts that name QField tools by necessity.
+    # The translations of a rewritten sentence are cleared, so other languages show the new
+    # English text until re-translated (better than a sentence that no longer matches).
+    ("src/gui/qml/QfProjectCreationScreen.qml",
+     "For more advanced needs, we advise you to create projects in QGIS using QFieldSync.",
+     "For more advanced needs, we advise you to create projects in QGIS."),
+]
+
+
+def step_rewrites(cfg, qf):
+    if get(cfg, "upstream_name.visible") is not False:
+        return
+    for rel, old, new in REWRITES:
+        patch(qf, rel, old, new)
+        msg = re.compile(r"<message\b.*?</message>", re.S)
+        hits = 0
+        for p in glob.glob(os.path.join(qf, "i18n/*.ts")):
+            text = read(p)
+
+            def fix(m):
+                nonlocal hits
+                block = m.group(0)
+                if old not in block:
+                    return block
+                hits += 1
+                block = block.replace(old, new, 1)  # the <source>
+                return re.sub(r"<translation\b[^>]*>.*?</translation>", '<translation type="unfinished"></translation>', block, flags=re.S)
+
+            out = msg.sub(fix, text)
+            if out != text:
+                write(p, out)
+                CHANGED.add(os.path.relpath(p, qf))
+        info(f"rewrote '{old[:50]}...' in {rel} and {hits} translation entries")
 
 
 def step_links(cfg, qf):
@@ -319,6 +355,26 @@ def step_theme(cfg, qf, outdir):
             fail(f"theme.json no longer has '{k}'; review step_theme in branding/apply.py")
         light[k] = primary
         dark[k] = dark_accent
+    # cloud colour (QField's blue by default): theme setting + the cloud icons that have it built in
+    cloud = get(cfg, "look.cloud")
+    if cloud:
+        fixed = base.get("fixedColors", {})
+        for k in ("cloudColor", "qfieldcloudBlue"):
+            if k not in fixed:
+                fail(f"theme.json no longer has fixedColors.{k}; review step_theme in branding/apply.py")
+            fixed[k] = cloud
+        blue = re.compile(r"#4c6dac|#4a6fae", re.I)
+        n = 0
+        for p in glob.glob(os.path.join(qf, "images/themes/qfield/nodpi/*.svg")):
+            s = read(p)
+            new = blue.sub(cloud, s)
+            if new != s:
+                write(p, new)
+                CHANGED.add(os.path.relpath(p, qf))
+                n += 1
+        if n == 0:
+            fail("no cloud icons with QField's blue found; review step_theme in branding/apply.py")
+        info(f"cloud colour {cloud}: theme + {n} icons")
     path = os.path.join(outdir, "theme.json")
     json.dump(base, open(path, "w", encoding="utf-8"), indent=2)
     return path
@@ -345,7 +401,7 @@ def step_scan(cfg, qf):
         return
     problems = []
     tr = re.compile(r"""\b(?:qsTr|tr)\(\s*("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')""")
-    word = re.compile(r"\bQField(?:Cloud)?\b|OPENGIS")
+    word = re.compile(r"\bQField(?:Cloud|Sync)?\b|OPENGIS")
     for p in glob.glob(os.path.join(qf, "src/**/*.qml"), recursive=True) + \
              glob.glob(os.path.join(qf, "src/**/*.cpp"), recursive=True) + \
              glob.glob(os.path.join(qf, "src/**/*.h"), recursive=True):
@@ -395,6 +451,7 @@ def main():
     info(f"client {get(cfg, 'client.key')}: {get(cfg, 'app.name')} ({get(cfg, 'app.id')}) on QField {upstream}")
     suffix = step_ids(cfg, qf)
     step_texts(cfg, qf)
+    step_rewrites(cfg, qf)
     step_links(cfg, qf)
     step_about(cfg, qf)
     step_patches(cfg, qf)

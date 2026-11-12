@@ -19,6 +19,7 @@ look:                                # placeholder palette (indigo, straw, terra
   primary: "#1E2742"                 # indigo: brand colour, icon background, light-theme accent
   accent_dark_theme: "#E3C58B"       # straw: accent on dark backgrounds
   highlight: "#C8553D"               # terracotta
+  cloud: "#C8553D"                   # cloud icons and badges; must be visible on light AND dark backgrounds
 
 about:
   organisation: "CHANGEME"
