@@ -7,6 +7,8 @@ client:
 
 app:
   name: "Scout"                      # name under the icon (keep it short)
+  store_name: "Scout: Field Data & Insights"   # Play Store title (max 30 characters; same as store/en-US/title.txt)
+  tagline: "Field Data & Insights"   # shown under the logo on the welcome screen
   cloud_name: "Scout Cloud"          # replaces "QFieldCloud" on screen
   id: com.boonagric.scout            # PERMANENT Android app ID
   icon: scout                        # base name of the icon files in assets/android
@@ -15,11 +17,18 @@ app:
 server:
   url: https://cloud.boonagric.com   # default server; users open straight onto sign-in
 
-look:                                # placeholder palette (indigo, straw, terracotta)
-  primary: "#1E2742"                 # indigo: brand colour, icon background, light-theme accent
-  accent_dark_theme: "#E3C58B"       # straw: accent on dark backgrounds
-  highlight: "#C8553D"               # terracotta
-  cloud: "#C8553D"                   # cloud icons and badges (terracotta: visible in light and dark mode)
+look:                                # "Trail S" palette
+  primary: "#22324A"                 # indigo: brand colour, icon background, light-theme accent
+  accent_dark_theme: "#7CC24A"       # trail green: accent on dark backgrounds
+  highlight: "#7CC24A"               # trail green (pin, trail dots); replaces QField's green in icons
+  cloud: "#22324A"                   # cloud icons and badges, light theme (indigo)
+  cloud_dark_theme: "#7CC24A"        # cloud icons and badges, dark theme (green)
+
+screens:
+  welcome: brand                     # logo + tagline, one "Scout Cloud projects" card, recent projects
+  always_open_last_project: true     # reopen the last project on launch; the on/off switch is removed
+  hide_cloud_settings_page: true     # no "Settings page" in the Scout Cloud menu
+  hide_variables_settings: true      # no "Variables" tab in Settings
 
 about:
   organisation: "Boon Agriculture Pvt Ltd"

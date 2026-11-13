@@ -1,0 +1,18 @@
+Scout is the field app from Boon Agriculture for collecting farm data where the work happens: in the field, with or without a signal.
+
+Open your farm projects from Scout Cloud, record soil samples, crop observations, pest and disease sightings, and photos on the map, then sync everything back when you are online again.
+
+WHAT YOU CAN DO
+• Work offline: download a project once and keep collecting data with no mobile signal.
+• Record points, lines and areas on the map using your phone's GPS or an external GNSS receiver.
+• Fill in simple forms with drop-down lists, dates, numbers, notes and photos.
+• See your fields, sample points and earlier records on top of satellite or street maps.
+• Sync to Scout Cloud: upload your changes and receive your team's updates.
+• Pick up where you left off: Scout reopens your last project when you start it.
+
+WHO IT IS FOR
+Agronomists, field officers, farm managers and scouts who need reliable, location-based records from the field.
+
+A Scout Cloud account is needed to sync projects. Contact Boon Agriculture to get access.
+
+Scout is built on open-source software and is distributed under the GNU General Public License. Details and source information are on the app's About page.

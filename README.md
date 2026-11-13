@@ -9,7 +9,7 @@ then compiles and signs it.
 
 | Client | App | App ID | Server |
 |---|---|---|---|
-| `scout` | Scout | `com.boonagric.scout` | https://cloud.boonagric.com |
+| `scout` | Scout (Play Store: *Scout: Field Data & Insights*) | `com.boonagric.scout` | https://cloud.boonagric.com |
 
 ## Layout
 
@@ -19,6 +19,9 @@ customers/<client>/
   customer.yml                everything that differs between clients
   assets/logo.svg             square logo (About page, cloud sign-in, default avatar)
   assets/android/             launcher icon, splash and notification icon (vector drawables)
+  assets/theme_icons/         in-app icons: replace QField's icons of the same name; *_dark.svg for the dark theme
+  design/                     source artwork and the script that makes the assets (optional)
+  store/                      Play Store listing: name, descriptions, icon, feature graphic
 customers/_template/          copy this to start a new client
 branding/apply.py             applies one client's branding to a clean QField checkout
 branding/rebrand_ids.sh       app ID, name, default server
@@ -61,10 +64,15 @@ common file types.
 3. QField documentation and product-site links → the client's help page; "Reach out" → support email.
 4. About page → client logo, organisation, support, privacy link, open-source notice.
 5. Disabled: QField documentation search, mascot easter egg, translator link, QField plugin catalogue.
-6. Logos, launcher icon, splash, notification icon; colours (theme).
-7. Sample projects off; Android notification titles renamed.
-8. `NOTICE.md` (GPL notice and list of changed files).
-9. **Scan:** the build stops if any user-visible QField name or link is left
+6. Screens (`screens:` in `customer.yml`): branded welcome screen (logo, tagline, one cloud-projects
+   card, recent projects), last project always reopened on launch, cloud "Settings page" and
+   Settings "Variables" tab hidden.
+7. Logos, launcher icon, splash, notification icon, in-app icons (light and dark); colours (theme,
+   with a separate cloud colour for the dark theme).
+8. Sample projects off; Android notification titles renamed.
+9. `NOTICE.md` (GPL notice and list of changed files).
+10. Checks the Play Store name (30 characters at most, same as `store/en-US/title.txt`).
+11. **Scan:** the build stops if any user-visible QField name or link is left
    (when `upstream_name.visible: false`).
 
 Every patch checks the code it changes still matches what it was written for; if a new QField

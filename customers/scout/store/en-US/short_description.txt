@@ -1,0 +1,1 @@
+Soil sampling and field scouting that works offline and syncs to your farm map.

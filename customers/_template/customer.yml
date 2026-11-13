@@ -7,6 +7,8 @@ client:
 
 app:
   name: "CHANGEME"                      # name under the icon (keep it short)
+  store_name: "CHANGEME"                # Play Store title (max 30 characters; same as store/en-US/title.txt)
+  tagline: ""                           # optional line under the logo on the welcome screen
   cloud_name: "CHANGEME Cloud"          # replaces "QFieldCloud" on screen
   id: com.example.app            # PERMANENT Android app ID
   data_folder: "CHANGEME"            # app folder on the phone (basemaps, fonts, plugins, logs)
@@ -19,7 +21,14 @@ look:                                # placeholder palette (indigo, straw, terra
   primary: "#1E2742"                 # indigo: brand colour, icon background, light-theme accent
   accent_dark_theme: "#E3C58B"       # straw: accent on dark backgrounds
   highlight: "#C8553D"               # terracotta
-  cloud: "#C8553D"                   # cloud icons and badges; must be visible on light AND dark backgrounds
+  cloud: "#C8553D"                   # cloud icons and badges (light theme)
+  cloud_dark_theme: ""               # optional: cloud colour in the dark theme (default: same as cloud)
+
+screens:                             # all optional; remove a line to keep QField's behaviour
+  welcome: brand                     # needs assets/theme_icons/brand_lockup(.svg|_dark.svg) and brand_cloud_projects_48dp(.svg|_dark.svg)
+  always_open_last_project: true
+  hide_cloud_settings_page: true
+  hide_variables_settings: true
 
 about:
   organisation: "CHANGEME"
